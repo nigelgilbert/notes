@@ -28,7 +28,9 @@ The client has a [data pipeline](https://docs.microsoft.com/en-us/azure/architec
 |:------------|:-----|
 | **layer**   | on-prem or Azure-deployed apps |
 | **pros**    | custom-fit solutions |
-| **cons**    | high resources to implement, high cost to maintain |
+| **cons**    | high resources to implement, high cost to maintain, highly coupled to app or EPR software |
+
+For ERP, the software to update records using the 3rd party API would be implemented in X++.  This also may be .NET or any other application running on Azure App Service.
 
 #### Azure Function + Blob Trigger
 |             |      |
@@ -37,29 +39,31 @@ The client has a [data pipeline](https://docs.microsoft.com/en-us/azure/architec
 | **pros**    | binary blobs = *anything*– images, records; occurs before Azure SQL, hence well-suited for e.g. formatting / processing; Azure makes blobs are very easy to integrate with |
 | **cons**    | high resources to implement, can be a chore to map entities out of binary |
 
+Azure Functions have excellent blob storage support, which means using blob storage to triggering Functions is trivial.  This is an ideal place for e.g. sync'ing images or other files w/ a 3rd party API.  The issue is that one has to be intentional with data formats when staging to binary so that they can be easily read by the Functions.  Moreover, you waste resource turning the binary data into entities.
+
 #### Azure Function + Azure SQL Polling
 |             |      |
 |:------------|:-----|
 | **layer**   | warehouse phase of ETL pipeline |
 | **pros**    | blobs = *anything*– images, records; occurs before Azure SQL, hence well-suited for e.g. formatting / processing; Azure makes blobs are very easy integration |
-| **cons**    | only possible in Azure SQL (max size 4TB), not Azure Data Warehouse |
+| **cons**    | only possible in Azure SQL (max [size 4TB](https://www.jamesserra.com/archive/2017/03/sql-db-now-supports-4tb-max-database-size/)), not Azure Data Warehouse |
 
-#### Azure Data Factory v2 + Web Activities
-|             |      |
-|:------------|:-----|
-| **layer**   | ingestion phase of ETL pipeline |
-| **pros**    | low development costs |
-| **cons**    | very new so few docs; some features aren't supported |
-
-https://predica.pl/blog/adf-v2-conditional-execution-parameters/
-https://docs.microsoft.com/en-us/azure/data-factory/control-flow-web-activity
+This technique is nice because one doesn't have to worry about data formatting– it's easier to read records out of normalized tables.  Also, it's sometimes more reliable to operate on data that is already in the SQL database (e.g. if binary is only a staging area and some records are filtered out in the pipeline's transform processes). The primary issue with this technique is that it's only viable in Azure SQL, which has a limited max-size.
 
 #### Azure Data Factory v1 + Custom Activities
 |             |      |
 |:------------|:-----|
 | **layer**   | ingestion phase of ETL pipeline |
 | **pros**    | medium development costs |
-| **cons**    | requires software development |
+| **cons**    | requires custom software solution |
 
-https://docs.microsoft.com/en-us/azure/data-factory/transform-data-using-dotnet-custom-activity
+Azure Data Factories lets one move and transform data between [supported](https://docs.microsoft.com/en-us/azure/data-factory/copy-activity-overview#supported-data-stores-and-formats) source and sink data sources.  To move data to/from an unsupported store, one can use [custom activities](https://docs.microsoft.com/en-us/azure/data-factory/transform-data-using-dotnet-custom-activity).
 
+#### Azure Data Factory v2 + Web Activities
+|             |      |
+|:------------|:-----|
+| **layer**   | ingestion phase of ETL pipeline |
+| **pros**    | low development costs, no coding required |
+| **cons**    | very new so few docs; some features aren't supported |
+
+[Azure Data Factory v2](https://docs.microsoft.com/en-us/azure/data-factory/compare-versions) has the same function as ADFv1, however it also provides powerful non-coding [control flow](https://predica.pl/blog/adf-v2-conditional-execution-parameters/), which uses a block-based GUI to [visually build pipelines.](https://azure.microsoft.com/en-us/resources/videos/azure-friday-visually-build-pipelines-for-azure-data-factory-v2/)  You can use [ADFv2 Web Activities](https://docs.microsoft.com/en-us/azure/data-factory/control-flow-web-activity) to upload data to the 3rd party API.
